@@ -1,5 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
+import {
+  Component,
+  effect,
+  EventEmitter,
+  inject,
+  Input,
+  OnInit,
+  Output,
+} from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
@@ -36,10 +44,29 @@ export class ModalComponent {
       level: [this.levels[0], Validators.required],
     });
   }
+  /**
+   * Handle modal open
+   */
+  private handleModalOpen(): void {
+    console.log('handleModalOpen called!');
+    const modal = document.getElementById('modal-id');
+    if (modal) {
+      if (this.show) {
+        modal.style.display = 'block';
+        modal.classList.add('show'); // optional if using Bootstrap modal styles
+      } else {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+      }
+    }
+  }
 
-  closeModal() {
+  /**
+   * Handle modal close
+   */
+  closeModal(): void {
     this.show = false;
-    this.closeModalEvent.emit(false);
+    this.closeModalEvent.emit(true);
   }
 
   addNewNote() {

@@ -9,7 +9,7 @@
           <button class="btn btn-sm btn-warning" (click)="editNote(note)">
             <i class="fa fa-edit"></i> Edit
           </button>
-          <app-modal [title]="'Update Note'" [show]="editable.value" [appState]="appState$" (closeModalEvent)="handleCloseModal($event)"></app-modal>
+          <app-modal *ngIf="editable" [title]="'Update Note'" [show]="editable" [appState]="appState$" (closeModalEvent)="handleCloseModal($event)"></app-modal>
 
           <button class="btn btn-sm btn-danger" (click)="deleteNote(note)">
             <i class="fa fa-trash"></i> Delete

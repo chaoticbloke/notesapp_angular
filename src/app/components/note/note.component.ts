@@ -1,6 +1,7 @@
 import {
   ChangeDetectorRef,
   Component,
+  effect,
   inject,
   Input,
   OnInit,
@@ -25,8 +26,9 @@ export class NoteComponent implements OnInit {
   editable = false;
   constructor() {}
   ngOnInit(): void {}
-  editNote(note: any) {
-    this.editable = true;
+  editNote(note?: any) {
+    this.editable = false;
+    setTimeout(() => (this.editable = true));
   }
   deleteNote(note: any) {
     console.log(note);
