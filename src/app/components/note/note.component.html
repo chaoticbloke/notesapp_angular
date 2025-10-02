@@ -1,0 +1,32 @@
+     <div class="card card-body">
+          <span [ngClass]="{
+            'side-stick-ph' : note?.level === 'HIGH',
+            'side-stick-pm' : note?.level === 'MEDIUM',
+            'side-stick-pl' : note?.level === 'LOW'
+          }"></span>
+                            <!-- Edit/Delete Buttons (top-right) -->
+        <div class="position-absolute top-0 end-0 me-2 mt-2 d-flex gap-1">
+          <button class="btn btn-sm btn-warning" (click)="editNote(note)">
+            <i class="fa fa-edit"></i> Edit
+          </button>
+          <app-modal [title]="'Update Note'" [show]="editable.value" [appState]="appState$" (closeModalEvent)="handleCloseModal($event)"></app-modal>
+
+          <button class="btn btn-sm btn-danger" (click)="deleteNote(note)">
+            <i class="fa fa-trash"></i> Delete
+          </button>
+        </div>
+
+          <h5 class="note-title text-truncate w-75 mb-0" data-noteheading="Book a Ticket for Movie">
+           {{ note?.title }} <i class="point fa fa-circle ms-1 fs-6"></i>
+          </h5>
+          <p class="note-date small text-muted">{{ note?.createdAt | date:'medium' }} | <b [ngClass]="{
+            'text-danger' : note?.level === 'HIGH',
+            'text-success' : note?.level === 'MEDIUM',
+            'text-primary' : note?.level === 'LOW'
+          }">{{ note?.level}}</b></p>
+          <div class="note-content">
+            <p class="note-inner-content text-muted" data-notecontent="Blandit tempus porttitor aasfs. Integer posuere erat a ante venenatis.">
+             {{ note?.description }}
+            </p>
+          </div>
+      </div>

@@ -1,0 +1,63 @@
+<div class="modal" tabindex="-1"  [ngStyle]="{ display: show ? 'block' : 'none' }">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title"> {{ title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" (click)="closeModal()"></button>
+      </div>
+      <div class="modal-body">
+        <div class="notes-box">
+            <div class="notes-content">
+              <form [formGroup]="createNoteForm" id="addnotesmodalTitle">
+                <div class="row">
+                  <div class="col-md-12 mb-3">
+                    <div class="note-title">
+                      <label>Note Title</label>
+                      <input type="text" id="note-has-title" class="form-control" minlength="25" placeholder="Title" formControlName="title"/>
+                    </div>
+                  </div>
+                  <div class="col-md-12 mb-3">
+                    <div class="note-title">
+                      <label>Level</label>
+                      <select id="note-level" class="form-control" formControlName="level">
+                      <option value="">--Select Level--</option>
+                      <option value="LOW">LOW</option>
+                      <option value="MEDIUM">MEDIUM</option>
+                      <option value="HIGH">HIGH</option>
+                    </select>
+                    </div>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="note-description">
+                      <label>Note Description</label>
+                      <textarea id="note-has-description" class="form-control" minlength="60" placeholder="Description" rows="3" formControlName="description"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+      </div>
+        <div class="modal-footer">
+          <button id="btn-n-save" class="btn btn-success d-none">Save</button>
+          <button class="btn btn-danger" data-bs-dismiss="modal" (click)="closeModal()">Cancel</button>
+          <button
+            id="btn-n-add"
+            class="btn btn-info d-flex align-items-center justify-content-center"
+            [disabled]="(appState | async)?.dataState === 'LOADING_STATE'"
+            (click)="addNewNote()">
+            @if ((appState | async)?.dataState === 'LOADING_STATE') {
+              <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              Saving...
+            } @else {
+              Add
+            }
+          </button>
+        </div>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop fade show" *ngIf="show"></div>
+
+
