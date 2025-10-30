@@ -18,7 +18,17 @@ import { AppState } from '../../interface/app-state';
 import { CustomHttpResponse } from '../../interface/custom-http-response';
 import { Observable } from 'rxjs/internal/Observable';
 import { getLevels } from '../../enums/level';
-import { BehaviorSubject } from 'rxjs';
+import {
+  BehaviorSubject,
+  catchError,
+  map,
+  of,
+  shareReplay,
+  startWith,
+} from 'rxjs';
+import { NoteService } from '../../service/note.service';
+import { DataState } from '../../enums/data-state';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'app-modal',
@@ -30,12 +40,16 @@ import { BehaviorSubject } from 'rxjs';
 export class ModalComponent {
   @Input() title: string = 'Default Modal Heading.';
   @Input() show = false;
-  @Input() appState!: Observable<AppState<CustomHttpResponse>>;
 
-  @Output() closeModalEvent = new EventEmitter<boolean>(false);
   levels = getLevels();
   fb = inject(FormBuilder);
+  noteService = inject(NoteService);
+  toastrService = inject(ToastrService);
   createNoteForm!: FormGroup;
+
+  @Input() appState = this.noteService.notesObs$;
+  @Output() closeModalEvent = new EventEmitter<any>();
+
   constructor() {
     console.log('constructor value received in Modal are ', this.show);
     this.createNoteForm = this.fb.group({
@@ -66,10 +80,22 @@ export class ModalComponent {
    */
   closeModal(): void {
     this.show = false;
-    this.closeModalEvent.emit(true);
+    this.closeModalEvent.emit(this.appState);
   }
 
   addNewNote() {
-    console.log('addnewNote called in modal');
+    console.log('add note called in modal comp');
+    const note = this.createNoteForm.value;
+    console.log('note in modal', note);
+    this.noteService.createNote(note).subscribe({
+      next: () => {
+        this.toastrService.success('Note added successfully!');
+        this.createNoteForm.reset();
+        this.closeModal();
+      },
+      error: (err) => {
+        this.toastrService.error(err.message || 'Failed to add note');
+      },
+    });
   }
 }

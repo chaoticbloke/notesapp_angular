@@ -45,14 +45,8 @@
           <button
             id="btn-n-add"
             class="btn btn-info d-flex align-items-center justify-content-center"
-            [disabled]="(appState | async)?.dataState === 'LOADING_STATE'"
             (click)="addNewNote()">
-            @if ((appState | async)?.dataState === 'LOADING_STATE') {
-              <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-              Saving...
-            } @else {
               Add
-            }
           </button>
         </div>
     </div>

@@ -1,9 +1,18 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Note } from '../interface/note';
-import { catchError, Observable, of, tap, throwError } from 'rxjs';
+import {
+  BehaviorSubject,
+  catchError,
+  Observable,
+  map,
+  retry,
+  tap,
+  throwError,
+} from 'rxjs';
 import { CustomHttpResponse } from '../interface/custom-http-response';
 import { AppState } from '../interface/app-state';
+import { DataState } from '../enums/data-state';
 interface ApiData {
   statusCode: number;
   data: [];
@@ -12,45 +21,76 @@ interface ApiData {
   providedIn: 'root',
 })
 export class NoteService {
+  private notesSubject = new BehaviorSubject<AppState<Note[]>>({
+    dataState: DataState.LOADING,
+  });
+  notesObs$ = this.notesSubject.asObservable();
+
   private readonly apiUrl = 'http://localhost:9999/note';
-  constructor(private http: HttpClient) {}
-
-  //use of CustomHttpResponse<>
-  notes$ = <Observable<CustomHttpResponse>>(
-    this.http.get<CustomHttpResponse>(this.apiUrl + '/all').pipe(
-      tap((res) => console.log('TAP operator :', res)),
-      catchError((err) => this.handleError(err))
-    )
-  );
-
-  private handleError(err: HttpErrorResponse): Observable<any> {
-    console.error('API Error:', err);
-
-    // Map HttpErrorResponse → CustomHttpResponse
-    const errorResponse = {
-      // timeStamp: new Date(),
-      // statusCode: err.status || 500,
-      // message: err.message || 'Something went wrong',
-      // reason: err.error?.reason || err.statusText || 'Unknown error',
-      // developerMessage:
-      //   err.error?.developerMessage || 'Unexpected error occurred',
-      //notes: null,
-    };
-
-    // Option 1: propagate as observable error
-    // return throwError(() => errorResponse);
-
-    // Option 2 (more robust): return safe object so UI can handle gracefully
-    return of(errorResponse);
+  constructor(private http: HttpClient) {
+    this.fetchNotes().subscribe();
   }
-  createNote(note: Note): Observable<AppState<CustomHttpResponse>> {
-    console.log('createNote service', note);
-    return this.http.post<AppState<CustomHttpResponse>>(
-      `${this.apiUrl}/create`,
-      note
+
+  fetchNotes() {
+    return this.http.get(this.apiUrl + '/all').pipe(
+      map((response: any) => {
+        console.log('fetch all notes server response :', response);
+        const appState: AppState<Note[]> = {
+          dataState: DataState.LOADED,
+          data: response.notes,
+        };
+        return appState;
+      }),
+      tap((notes) => this.notesSubject.next(notes)),
+      catchError(this.handleError)
     );
   }
 
+  createNote(note: Note): Observable<AppState<Note[]>> {
+    console.log('create Note called with note', note);
+    return this.http.post<AppState<Note[]>>(`${this.apiUrl}/create`, note).pipe(
+      tap((response: any) => {
+        const currentState = this.notesSubject.getValue();
+        const newNotesList = [...(currentState.data || []), response.notes[0]];
+
+        const updatedAppState: AppState<Note[]> = {
+          ...currentState,
+          dataState: DataState.LOADED,
+          data: newNotesList,
+        };
+        this.notesSubject.next(updatedAppState);
+      }),
+      catchError(this.handleError)
+    );
+  }
+
+  private handleError(err: HttpErrorResponse): Observable<any> {
+    let errorMessage = '';
+    if (err.error instanceof ErrorEvent) {
+      //client side error
+      errorMessage = `Network Error : ${err.error.message}`;
+    } else {
+      //backend error
+      switch (err.status) {
+        case 0:
+          errorMessage =
+            'Unable to connect. Please check your internet or server.';
+          break;
+        case 400:
+          errorMessage = 'Bad request. Please check your input.';
+          break;
+        case 404:
+          errorMessage = 'Resource not found.';
+          break;
+        case 500:
+          errorMessage = 'Server error. Please try again later.';
+          break;
+        default:
+          errorMessage = `Unexpected error: ${err.message}`;
+      }
+    }
+    return throwError(() => new Error(errorMessage));
+  }
   updateNote(note: Note) {
     return this.http.put(this.apiUrl, note);
   }

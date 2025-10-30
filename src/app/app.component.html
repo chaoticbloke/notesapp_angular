@@ -29,17 +29,18 @@
     </li>
     <li class="nav-item ms-auto">
       <a
-      (click)="openAddModal()"
+      (click)="openAddNoteModal()"
       routerLink="/add"
       routerLinkActive="active"
        class="nav-link btn-primary rounded-pill d-flex align-items-center px-3" id="add-notes">
         <i class="icon-note m-1"></i><span class="d-none d-md-block fs-6">Add Note</span></a>
     </li>
   </ul>
+  <div>app state : {{ appState$ | async | json}}</div>
 <div class="tab-content bg-transparent">
   <div id="note-full-container" class="note-has-grid row">
     @if (appState$ | async; as state) {
-      @if (state.data?.notes; as notes) {
+      @if (state.data; as notes) {
         @for (note of notes; track note.id) {
            <div class="col-md-4 single-note-item all-category">
               <app-note [note]="note" [appState$]="appState$"></app-note>
@@ -52,67 +53,6 @@
     }
   </div>
 </div>
-
-
-  <!-- Modal Add notes -->
-  <div  #addnotesmodal class="modal fade" id="addnotesmodal" tabindex="-1" aria-labelledby="addnotesmodalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0">
-        <div class="modal-header bg-info text-white">
-          <h5 class="modal-title text-white">Add Notes</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" (click)="closeAddModal()"></button>
-        </div>
-        <div class="modal-body">
-          <div class="notes-box">
-            <div class="notes-content">
-              <form [formGroup]="createNoteForm" id="addnotesmodalTitle">
-                <div class="row">
-                  <div class="col-md-12 mb-3">
-                    <div class="note-title">
-                      <label>Note Title</label>
-                      <input type="text" id="note-has-title" class="form-control" minlength="25" placeholder="Title" formControlName="title"/>
-                    </div>
-                  </div>
-                  <div class="col-md-12 mb-3">
-                    <div class="note-title">
-                      <label>Level</label>
-                      <select id="note-level" class="form-control" formControlName="level">
-                      <option value="">--Select Level--</option>
-                      <option value="LOW">LOW</option>
-                      <option value="MEDIUM">MEDIUM</option>
-                      <option value="HIGH">HIGH</option>
-                    </select>
-                    </div>
-                  </div>
-
-                  <div class="col-md-12">
-                    <div class="note-description">
-                      <label>Note Description</label>
-                      <textarea id="note-has-description" class="form-control" minlength="60" placeholder="Description" rows="3" formControlName="description"></textarea>
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button id="btn-n-save" class="btn btn-success d-none">Save</button>
-          <button class="btn btn-danger" data-bs-dismiss="modal" (click)="closeAddModal()">Cancel</button>
-          <button
-            id="btn-n-add"
-            class="btn btn-info d-flex align-items-center justify-content-center"
-            [disabled]="(appState$ | async)?.dataState === 'LOADING_STATE'"
-            (click)="addNewNote()">
-            @if ((appState$ | async)?.dataState === 'LOADING_STATE') {
-              <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-              Saving...
-            } @else {
-              Add
-            }
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
+
+<app-modal #modalComponent *ngIf="addNoteFlag" [title]="'Add Note'" [show]="addNoteFlag" [appState]="appState$"></app-modal>
