@@ -1,41 +1,23 @@
-import { Component, inject, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
-import { ModalService } from './service/modal.service';
+import { Component, inject, OnInit, ViewChild } from '@angular/core';
+import {
+  RouterLink,
+  RouterLinkActive,
+  ActivatedRoute,
+  Router,
+  NavigationEnd,
+} from '@angular/router';
 import { CommonModule } from '@angular/common';
-import {
-  FormsModule,
-  FormBuilder,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
 import { NoteService } from './service/note.service';
-import { Note } from './interface/note';
-import { getLevels, Level } from './enums/level';
 import { NoteComponent } from './components/note/note.component';
-import { CustomHttpResponse } from './interface/custom-http-response';
-import {
-  catchError,
-  map,
-  Observable,
-  startWith,
-  of,
-  BehaviorSubject,
-  shareReplay,
-} from 'rxjs';
-import { AppState } from './interface/app-state';
-import { DataState } from './enums/data-state';
 import { ModalComponent } from './components/modal/modal.component';
-import { ToastrService } from 'ngx-toastr';
+import { Observable, filter, map, startWith, switchMap } from 'rxjs';
+import { Note } from './interface/note';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
-    NoteComponent,
-    ReactiveFormsModule,
     NoteComponent,
     RouterLink,
     RouterLinkActive,
@@ -44,51 +26,52 @@ import { ToastrService } from 'ngx-toastr';
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent implements OnInit, OnDestroy {
-  isAddModalOpen = false;
-  noteTitle = 'this is model';
-  noteDescription = 'model description';
-  isModalOpen = true;
-  isSaving = false;
-  levels = getLevels();
+export class AppComponent implements OnInit {
   addNoteFlag = false;
-  createNoteForm!: FormGroup;
-  note: Note = {
-    title: '',
-    description: '',
-    createdAt: new Date(),
-    level: Level.HIGH,
-  };
-
   noteService = inject(NoteService);
-  toasterService = inject(ToastrService);
+  private route = inject(ActivatedRoute);
+  router = inject(Router);
 
+  // Expose the main observable
   appState$ = this.noteService.notesObs$;
 
+  // Filtered notes based on route
+  filteredNotes$!: Observable<Note[]>;
+
   @ViewChild('modalComponent') modalComponent!: ModalComponent;
-
-  constructor(private modalService: ModalService, private fb: FormBuilder) {}
   ngOnInit(): void {
-    this.createNoteForm = this.fb.group({
-      title: ['', Validators.required],
-      description: ['', Validators.required],
-      level: [this.levels[0], Validators.required],
-    });
+    this.router.events
+      .pipe(
+        // keep it to nav end, and run once on init
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        startWith(null),
+        // 👇 walk down the *ActivatedRoute* tree, not Router
+        map(() => {
+          let r: ActivatedRoute = this.route;
+          while (r.firstChild) r = r.firstChild;
+          return r;
+        }),
+        switchMap((r) => r.paramMap)
+      )
+      .subscribe((pm) => {
+        const priority = pm.get('priority') ?? 'all';
+        console.log('priority from child:', priority);
+        this.filteredNotes$ = this.noteService.filterNotesByPriority(priority);
+      });
   }
 
-  onSubmit() {
-    console.log('onSubmit CALLED!!');
-  }
-
-  getNotesData() {}
-
-  onLevelChange(event: any) {
-    console.log('level change ', event);
-  }
-
-  openAddNoteModal() {
+  /**
+   * Open add note modal
+   */
+  openAddNoteModal(): void {
     this.addNoteFlag = false;
-    setTimeout(() => (this.addNoteFlag = true));
+    setTimeout(() => (this.addNoteFlag = true), 0);
   }
-  ngOnDestroy(): void {}
+
+  /**
+   * Handle modal close event
+   */
+  onModalClose(): void {
+    this.addNoteFlag = false;
+  }
 }

@@ -1,19 +1,14 @@
 import { Routes } from '@angular/router';
-import { NoteComponent } from './components/note/note.component';
 
 export const routes: Routes = [
   {
     path: 'notes/:priority',
-    component: NoteComponent,
-  },
-  {
-    path: 'add',
-    component: NoteComponent,
+    loadComponent: () => import('./app.component').then((m) => m.AppComponent),
   },
   {
     path: '',
     redirectTo: 'notes/all',
-    pathMatch: 'full', // default route
+    pathMatch: 'full',
   },
   {
     path: '**',

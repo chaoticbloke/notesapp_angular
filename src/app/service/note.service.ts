@@ -6,78 +6,209 @@ import {
   catchError,
   Observable,
   map,
-  retry,
   tap,
   throwError,
+  finalize,
 } from 'rxjs';
 import { CustomHttpResponse } from '../interface/custom-http-response';
 import { AppState } from '../interface/app-state';
 import { DataState } from '../enums/data-state';
-interface ApiData {
-  statusCode: number;
-  data: [];
-}
+
 @Injectable({
   providedIn: 'root',
 })
 export class NoteService {
+  private readonly apiUrl = 'http://localhost:9999/note';
+
   private notesSubject = new BehaviorSubject<AppState<Note[]>>({
     dataState: DataState.LOADING,
+    data: null,
+    error: null,
   });
-  notesObs$ = this.notesSubject.asObservable();
 
-  private readonly apiUrl = 'http://localhost:9999/note';
+  public notesObs$ = this.notesSubject.asObservable();
+
   constructor(private http: HttpClient) {
-    this.fetchNotes().subscribe();
+    this.loadNotes();
   }
 
-  fetchNotes() {
-    return this.http.get(this.apiUrl + '/all').pipe(
-      map((response: any) => {
-        console.log('fetch all notes server response :', response);
-        const appState: AppState<Note[]> = {
+  /**
+   * Load all notes from server
+   */
+  private loadNotes(): void {
+    this.setLoadingState();
+
+    this.http
+      .get<any>(`${this.apiUrl}/all`)
+      .pipe(
+        map((response) => ({
           dataState: DataState.LOADED,
-          data: response.notes,
-        };
-        return appState;
-      }),
-      tap((notes) => this.notesSubject.next(notes)),
-      catchError(this.handleError)
-    );
+          data: response.notes || [],
+          error: null,
+        })),
+        catchError((error) => {
+          const errorMessage = this.handleError(error);
+          this.setErrorState(errorMessage);
+          return throwError(() => error);
+        })
+      )
+      .subscribe((state) => {
+        this.notesSubject.next(state);
+      });
   }
 
-  createNote(note: Note): Observable<AppState<Note[]>> {
-    console.log('create Note called with note', note);
-    return this.http.post<AppState<Note[]>>(`${this.apiUrl}/create`, note).pipe(
-      tap((response: any) => {
+  /**
+   * Create a new note
+   */
+  createNote(note: Note): Observable<Note> {
+    return this.http.post<any>(`${this.apiUrl}/create`, note).pipe(
+      map((response) => response.notes[0]),
+      tap((newNote) => {
         const currentState = this.notesSubject.getValue();
-        const newNotesList = [...(currentState.data || []), response.notes[0]];
+        const updatedNotes = [...(currentState.data || []), newNote];
 
-        const updatedAppState: AppState<Note[]> = {
-          ...currentState,
+        this.notesSubject.next({
           dataState: DataState.LOADED,
-          data: newNotesList,
-        };
-        this.notesSubject.next(updatedAppState);
+          data: updatedNotes,
+          error: null,
+        });
       }),
-      catchError(this.handleError)
+      catchError((error) => {
+        const errorMessage = this.handleError(error);
+        return throwError(() => new Error(errorMessage));
+      })
     );
   }
 
-  private handleError(err: HttpErrorResponse): Observable<any> {
+  /**
+   * Update an existing note
+   */
+  updateNote(note: Note): Observable<Note> {
+    if (!note.id) {
+      return throwError(() => new Error('Note ID is required for update'));
+    }
+
+    return this.http.put<any>(`${this.apiUrl}/update/${note.id}`, note).pipe(
+      map((response) => response.notes[0] || note),
+      tap((updatedNote) => {
+        const currentState = this.notesSubject.getValue();
+        const updatedNotes = (currentState.data || []).map((n) =>
+          n.id === updatedNote.id ? updatedNote : n
+        );
+
+        this.notesSubject.next({
+          dataState: DataState.LOADED,
+          data: updatedNotes,
+          error: null,
+        });
+      }),
+      catchError((error) => {
+        const errorMessage = this.handleError(error);
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  /**
+   * Delete a note by ID
+   */
+  deleteNote(noteId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${noteId}`).pipe(
+      tap(() => {
+        const currentState = this.notesSubject.getValue();
+        const updatedNotes = (currentState.data || []).filter(
+          (note) => note.id !== noteId
+        );
+
+        this.notesSubject.next({
+          dataState: DataState.LOADED,
+          data: updatedNotes,
+          error: null,
+        });
+      }),
+      catchError((error) => {
+        const errorMessage = this.handleError(error);
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  /**
+   * Filter notes by priority level
+   */
+  filterNotesByPriority(priority: string): Observable<Note[]> {
+    return this.notesObs$.pipe(
+      map((state) => {
+        if (!state.data) return [];
+
+        if (priority === 'all') {
+          return state.data;
+        }
+
+        return state.data.filter(
+          (note) => note.level.toUpperCase() === priority.toUpperCase()
+        );
+      })
+    );
+  }
+
+  /**
+   * Get a single note by ID
+   */
+  getNoteById(noteId: number): Observable<Note | undefined> {
+    return this.notesObs$.pipe(
+      map((state) => state.data?.find((note) => note.id === noteId))
+    );
+  }
+
+  /**
+   * Refresh notes from server
+   */
+  refreshNotes(): void {
+    this.loadNotes();
+  }
+
+  /**
+   * Set loading state
+   */
+  private setLoadingState(): void {
+    const currentState = this.notesSubject.getValue();
+    this.notesSubject.next({
+      ...currentState,
+      dataState: DataState.LOADING,
+    });
+  }
+
+  /**
+   * Set error state
+   */
+  private setErrorState(errorMessage: string): void {
+    this.notesSubject.next({
+      dataState: DataState.ERROR,
+      data: null,
+      error: errorMessage,
+    });
+  }
+
+  /**
+   * Handle HTTP errors
+   */
+  private handleError(err: HttpErrorResponse): string {
     let errorMessage = '';
+
     if (err.error instanceof ErrorEvent) {
-      //client side error
-      errorMessage = `Network Error : ${err.error.message}`;
+      // Client-side error
+      errorMessage = `Network Error: ${err.error.message}`;
     } else {
-      //backend error
+      // Backend error
       switch (err.status) {
         case 0:
           errorMessage =
             'Unable to connect. Please check your internet or server.';
           break;
         case 400:
-          errorMessage = 'Bad request. Please check your input.';
+          errorMessage =
+            err.error?.message || 'Bad request. Please check your input.';
           break;
         case 404:
           errorMessage = 'Resource not found.';
@@ -86,18 +217,11 @@ export class NoteService {
           errorMessage = 'Server error. Please try again later.';
           break;
         default:
-          errorMessage = `Unexpected error: ${err.message}`;
+          errorMessage =
+            err.error?.message || `Unexpected error: ${err.message}`;
       }
     }
-    return throwError(() => new Error(errorMessage));
-  }
-  updateNote(note: Note) {
-    return this.http.put(this.apiUrl, note);
-  }
 
-  deleteNote(noteId: number) {
-    return this.http.delete(`${this.apiUrl}/${noteId}`, {
-      observe: 'response',
-    });
+    return errorMessage;
   }
 }
